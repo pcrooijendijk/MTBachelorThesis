@@ -1,47 +1,15 @@
+#%% Import packges, modules, functions
 import torch
 import torch.nn as nn
 
-#@title Import all needed modules
 import numpy as np
 import pickle
 import os
 import pandas as pd
-import sys
-import math
-import random
-# For plotting
-import pypianoroll
-from pypianoroll import Multitrack, Track
-import matplotlib
-import matplotlib.pyplot as plt
-#matplotlib.use('SVG')
-#%matplotlib inline
-#matplotlib.get_backend()
-import mir_eval.display
-import librosa
-import librosa.display
-# For rendering output audio
-import pretty_midi
-from midi2audio import FluidSynth
-# from google.colab import output
-from IPython.display import display, Javascript, HTML, Audio
-
-#%% Import packges, modules, functions
 from third_party.midi_processor.processor import encode_midi
 
-from utilities.argument_funcs import parse_generate_args
 from model.music_transformer import MusicTransformer
-from dataset.e_piano import process_midi
-from utilities.constants import TORCH_LABEL_TYPE
-from utilities.device import get_device
-
-#@title Negative Log probability
-#%% Import packges, modules, functions
-from third_party.midi_processor.processor import encode_midi
-
-from utilities.argument_funcs import parse_generate_args
-from model.music_transformer import MusicTransformer
-from dataset.e_piano import process_midi
+from dataset.e_piano_analysis import process_midi
 from utilities.constants import TORCH_LABEL_TYPE
 from utilities.device import get_device
 
@@ -55,29 +23,24 @@ def norm_neg_log_probs(neg_log_probs):
 
 #%% Load data
 dir_midi    = 'C:/Users/Pien/Documents/Documenten/Radboud/AI_third_year/Thesis/MTKERN/MusicTransformer-Pytorch-private/custom_midis/'
-dir_out     = 'C:/Users/Pien/Documents/Documenten/Radboud/AI_third_year/Thesis/MTKERN/MusicTransformer-Pytorch-private/rpr/results/best_acc_weights.pickle'
 
 filenames = set()
 
-with open('filenames.txt', 'r') as file:
-    for line in file:
-        # Remove newline character from each line
-        filename = line.strip()
-        filenames.add(filename)
+file_path = "C:/Users/Pien/Documents/Documenten/Radboud/AI_third_year/Thesis/MTKERN/MusicTransformer-Pytorch-private/filenames.txt"
+
+with open(file_path, 'r') as file:
+    lines = file.readlines()
+
+for line in lines:
+    line = line.strip()  # Remove leading/trailing whitespace and newlines
+    filenames.add(line)
      
 #%% Set model
 model = 'MT'
 len_context_list = [1] #  list of context lengths
 
-for len_context in len_context_list:    
-    # Initialize variables
-    probs_data = np.empty(shape=(len(filenames)*1000,128))
-    probs_data[:] = np.NaN
-    raw_probs_data = np.empty(shape=(len(filenames)*1000,128))
-    raw_probs_data[:] = np.NaN
-    
+for len_context in len_context_list:        
     # Arguments
-    
     model_weights = 'C:/Users/Pien/Documents/Documenten/Radboud/AI_third_year/Thesis/MTKERN/MusicTransformer-Pytorch-private/rpr/results/best_acc_weights.pickle' 
 
     rpr            = True
@@ -85,16 +48,19 @@ for len_context in len_context_list:
     primer_len     = len_context
         
     # Loop over compositions
-    i_row = 0
     for fn in filenames:
-        
+        probs_data = np.empty(shape=(len(filenames)*1000,128))
+        probs_data[:] = np.NaN
+        raw_probs_data = np.empty(shape=(len(filenames)*1000,128))
+        raw_probs_data[:] = np.NaN
+        i_row = 0
         # Encode midi data of current composition
         primer_file = dir_midi + fn
         raw_mid = encode_midi(primer_file)
         
         # loop over notes (note onset events only)
         note_positions = [i for i, j in enumerate(raw_mid) if j <= 127] # find note onset events
-        
+        print(fn, len(note_positions))
         for i_note, note_pos in enumerate(note_positions):
                    
                 if i_note < primer_len:
@@ -103,8 +69,8 @@ for len_context in len_context_list:
                 else:
                     sequence_start = note_positions[i_note - primer_len]
                     num_prime = note_pos - sequence_start
-
-                primer, _  = process_midi(raw_mid, num_prime, random_seq=False)
+                    
+                primer, _  = process_midi(raw_mid, num_prime, sequence_start, random_seq=False)
                 primer = torch.tensor(primer, dtype=TORCH_LABEL_TYPE, device=get_device())
 
                 # Variables
@@ -134,18 +100,17 @@ for len_context in len_context_list:
                 
                 i_row += 1
         
-        # Normalize probabilites to sum up to 1
+        # Normalize probabilites to sum up to 1f
         probs_data = norm_neg_log_probs(probs_data)
     
         # Assume uniform distribution for the first note in each composition
-        # probs_data[df['note_number']==0] = -np.log(np.repeat(1/128, 128))
+        probs_data[0] = -np.log(np.repeat(1/128, 128))
         
-        fn_out = 'C:/Users/Pien/Documents/Documenten/Radboud/AI_third_year/Thesis/MTKERN/MusicTransformer-Pytorch-private/rpr/results/output/probs_%s.csv' % (fn)
-        fn_out_raw = 'C:/Users/Pien/Documents/Documenten/Radboud/AI_third_year/Thesis/MTKERN/MusicTransformer-Pytorch-private/rpr/results/output/probs_%s.csv' % (fn)
+        fn_out = 'C:/Users/Pien/Documents/Documenten/Radboud/AI_third_year/Thesis/MTKERN/MusicTransformer-Pytorch-private/rpr/results/output/probs/probs_%s.csv' % (fn)
+        fn_out_raw = 'C:/Users/Pien/Documents/Documenten/Radboud/AI_third_year/Thesis/MTKERN/MusicTransformer-Pytorch-private/rpr/results/output/raw/probs_%sraw.csv' % (fn)
 
         df_out = pd.DataFrame(probs_data)
         df_out_raw = pd.DataFrame(raw_probs_data)
 
         df_out.to_csv(fn_out, index=False, header=False)
         df_out_raw.to_csv(fn_out_raw, index=False, header=False)
-
