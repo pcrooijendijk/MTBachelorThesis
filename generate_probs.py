@@ -22,11 +22,12 @@ def norm_neg_log_probs(neg_log_probs):
     return -np.log(probs)
 
 #%% Load data
-dir_midi    = 'C:/Users/Pien/Documents/Documenten/Radboud/AI_third_year/Thesis/MTKERN/MusicTransformer-Pytorch-private/custom_midis/'
+folder_path = os.getcwd()  # Get the current working directory (opened folder)
+dir_midi    = folder_path + '/custom_midis/'
 
 filenames = set()
 
-file_path = "C:/Users/Pien/Documents/Documenten/Radboud/AI_third_year/Thesis/MTKERN/MusicTransformer-Pytorch-private/filenames.txt"
+file_path = folder_path + "/filenames.txt"
 
 with open(file_path, 'r') as file:
     lines = file.readlines()
@@ -41,7 +42,7 @@ len_context_list = [1] #  list of context lengths
 
 for len_context in len_context_list:        
     # Arguments
-    model_weights = 'C:/Users/Pien/Documents/Documenten/Radboud/AI_third_year/Thesis/MTKERN/MusicTransformer-Pytorch-private/rpr/results/best_acc_weights.pickle' 
+    model_weights = folder_path + '/rpr/results/best_acc_weights.pickle' 
 
     rpr            = True
     max_sequence   = 2048
@@ -106,8 +107,8 @@ for len_context in len_context_list:
         # Assume uniform distribution for the first note in each composition
         probs_data[0] = -np.log(np.repeat(1/128, 128))
         
-        fn_out = 'C:/Users/Pien/Documents/Documenten/Radboud/AI_third_year/Thesis/MTKERN/MusicTransformer-Pytorch-private/rpr/results/output/probs/probs_%s.csv' % (fn)
-        fn_out_raw = 'C:/Users/Pien/Documents/Documenten/Radboud/AI_third_year/Thesis/MTKERN/MusicTransformer-Pytorch-private/rpr/results/output/raw/probs_%sraw.csv' % (fn)
+        fn_out = folder_path + '/rpr/results/output/probs/probs_%s.csv' % (fn)
+        fn_out_raw = folder_path + '/rpr/results/output/raw/probs_%sraw.csv' % (fn)
 
         df_out = pd.DataFrame(probs_data)
         df_out_raw = pd.DataFrame(raw_probs_data)
